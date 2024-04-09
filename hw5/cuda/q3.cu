@@ -1,3 +1,34 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+
+__global__ void findFrequency(const int* A, int* B, int size) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (tid < size){
+        atomicAdd(&B[A[tid]/100], 1);
+    }
+}
+
+__global__ void findLocalFrequency(const int* A, int* B, int size) {
+    __shared__ int localB[10]; // Shared memory for local copy of B within each block
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (threadIdx.x < 10)
+        localB[threadIdx.x] = 0;
+
+    __syncthreads();
+
+    if (tid < size) {
+        atomicAdd(&localB[A[tid] / 100], 1);
+    }
+
+    __syncthreads();
+
+    // Add localB to global B
+    if (threadIdx.x < 10)
+        atomicAdd(&B[threadIdx.x], localB[threadIdx.x]);
+}
 
 int main(int argc, char **argv)
 {
@@ -13,5 +44,102 @@ int main(int argc, char **argv)
     //  (3) q3c.txt which contains an array C of size 10 that keeps a count of
     //      the entries in each of the ranges: [0, 99], [0, 199], [0, 299], ..., [0, 999].
     //      You should only use array B for this part (do not use the original input array A).
+
+    // Read input array from inp.txt
+    std::ifstream inputFile("inp.txt");
+    if (!inputFile)
+    {
+        std::cerr << "Failed to open inp.txt" << std::endl;
+        return 1;
+    }
+
+    std::vector<int> A;
+    std::vector<int> B(10, 0); // Initialize B to 0 (10 elements)
+    std::string line;
+    while (std::getline(inputFile, line, ','))
+    {
+        int value = std::stoi(line);
+        A.push_back(value);
+    }
+    inputFile.close();
+
+    int size = A.size();
+    int* d_A;
+    int* d_B;
+
+    // Allocate memory on the GPU
+    cudaMalloc((void**)&d_A, size * sizeof(int));
+    cudaMalloc((void**)&d_B, 10 * sizeof(int));
+
+    // Copy input array from host to device
+    cudaMemcpy(d_A, A.data(), size * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_B, B.data(), 10 * sizeof(int), cudaMemcpyHostToDevice);
+    
+    // Launch kernel to find frequency
+    int blockSize = 256;
+    int gridSize = (size + blockSize - 1) / blockSize;
+    findFrequency<<<gridSize, blockSize>>>(d_A, d_B, size);
+
+    // Copy result back to host
+    cudaMemcpy(B.data(), d_B, 10 * sizeof(int), cudaMemcpyDeviceToHost);
+
+    // Write output to q3a.txt
+    std::ofstream outputFileA("q3a.txt");
+    if (!outputFileA)
+    {
+        std::cerr << "Failed to open q3a.txt" << std::endl;
+        return 1;
+    }
+
+    for (int i = 0; i < 10; i++)
+    {
+        if (i != 9) {
+            outputFileA << B[i] << ", ";
+        } else {
+            outputFileA << B[i];
+        }
+    }
+    outputFileA.close();
+
+    // ------
+    // Part B
+    // ------
+
+    cudaMemset(d_B, 0, 10 * sizeof(int)); // Reset d_B to 0
+
+    findLocalFrequency<<<gridSize, blockSize>>>(d_A, d_B, size);
+
+    // Copy result back to host
+    cudaMemcpy(B.data(), d_B, 10 * sizeof(int), cudaMemcpyDeviceToHost);
+
+    // ------
+    // Part C
+    // ------
+
+    // TODO:
+        // Question: What does the problem statement mean?
+
+    // Write output to q3b.txt
+    std::ofstream outputFileB("q3b.txt");
+    if (!outputFileB)
+    {
+        std::cerr << "Failed to open q3b.txt" << std::endl;
+        return 1;
+    }
+
+    for (int i = 0; i < 10; i++)
+    {
+        if (i != 9) {
+            outputFileB << B[i] << ", ";
+        } else {
+            outputFileB << B[i];
+        }
+    }
+    outputFileB.close();
+
+    // Free memory
+    cudaFree(d_A);
+    cudaFree(d_B);
+
     return 0;
 }
