@@ -39,18 +39,18 @@ public abstract class LLP {
         
         AtomicBoolean forbidden = new AtomicBoolean(true);
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
-        // for(int i = 0; i < numThreads; i++){
-        //     final int j = i;
-        //     executor.submit(new Runnable() {
-        //         public void run() {
-        //             init(j);
-        //         }
-        //     });
-        // }
-        executor.shutdown();
         for(int i = 0; i < numThreads; i++){
-            init(i);
+            final int j = i;
+            executor.submit(new Runnable() {
+                public void run() {
+                    init(j);
+                }
+            });
         }
+        executor.shutdown();
+        // for(int i = 0; i < numThreads; i++){
+        //     init(i);
+        // }
         
         
         while (forbidden.get()) {
@@ -58,20 +58,20 @@ public abstract class LLP {
             forbidden.set(false);
             for (int i = 0; i < numThreads; i++) {
                 // This is parallel version using the ExecutorService
-                // final int j = i;
-                // executor.submit(new Runnable() {
-                //     public void run() {
-                //         if (forbidden(j)) {
-                //             forbidden.set(true);
-                //             advance(j);
-                //         }
-                //     }
-                // });
+                final int j = i;
+                executor.submit(new Runnable() {
+                    public void run() {
+                        if (forbidden(j)) {
+                            forbidden.set(true);
+                            advance(j);
+                        }
+                    }
+                });
                 // This is a sequential version of the above code, for debugging
-                if(forbidden(i)){
-                    forbidden.set(true);
-                    advance(i);
-                }
+                // if(forbidden(i)){
+                //     forbidden.set(true);
+                //     advance(i);
+                // }
             }
             executor.shutdown();
             try {

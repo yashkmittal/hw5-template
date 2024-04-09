@@ -40,10 +40,12 @@ public class BellmanFord extends LLP {
     public boolean forbidden(int j) {
         boolean forbidden = false;
         for(Integer node: pre.get(j)){
-            if(min[j] > G[node] + adjMatrix[node][j]){
-                min[j] = G[node] + adjMatrix[node][j];
+            int pos_num = G[node] + adjMatrix[node][j];
+            if(pos_num < G[node]) pos_num = Integer.MAX_VALUE;
+            if(min[j] > pos_num){
+                min[j] = pos_num;
             }
-            if(G[j] > G[node] + adjMatrix[node][j]){
+            if(G[j] > pos_num){
                 forbidden = true;
             }
         }
