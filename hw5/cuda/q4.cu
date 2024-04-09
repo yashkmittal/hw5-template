@@ -2,7 +2,7 @@
 #include <fstream>
 #include <vector>
 
-__global__ void findOddNumbers(const int* A, int* D, int* temp, int numOdd, int size){
+__global__ void findOddNumbers(const int* A, int* D, int* temp, int size){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid < size){
         if (temp[tid] == 1){
@@ -10,9 +10,7 @@ __global__ void findOddNumbers(const int* A, int* D, int* temp, int numOdd, int 
             for(int i = 0; i < tid; i++){
                 index += temp[i];
             }
-            if(index < numOdd){
-                D[index] = A[tid];
-            }
+            D[index] = A[tid];
         }
     }
 }
@@ -78,14 +76,13 @@ int main(int argc, char **argv)
 
     // Copy number of odd numbers from device to host
     cudaMemcpy(&numOdd, d_numOdd, sizeof(int), cudaMemcpyDeviceToHost);
-    printf("Number of odd numbers: %d\n", numOdd);
 
     // Allocate memory for array D on the GPU
     int* d_D;
     cudaMalloc((void**)&d_D, numOdd * sizeof(int));
 
     // Launch kernel to find and copy odd numbers to array D
-    findOddNumbers<<<gridSize, blockSize>>>(d_A, d_D, d_temp, numOdd, size);
+    findOddNumbers<<<gridSize, blockSize>>>(d_A, d_D, d_temp, size);
 
     // Copy array D from device to host
     std::vector<int> D(numOdd);
