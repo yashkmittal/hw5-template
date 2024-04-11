@@ -2,15 +2,11 @@
 #include <fstream>
 #include <vector>
 
-__global__ void findOddNumbers(const int* A, int* D, int* temp, int size){
+__global__ void findOddNumbers(const int* A, int* B, int* D, int* temp, int size){
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid < size){
         if (temp[tid] == 1){
-            int index = 0;
-            for(int i = 0; i < tid; i++){
-                index += temp[i];
-            }
-            D[index] = A[tid];
+            D[B[tid]] = A[tid];
         }
     }
 }
@@ -24,6 +20,26 @@ __global__ void findNumOddNumbers(const int* A, int* d_temp, int* numOdd, int si
         }
         else {
             d_temp[tid] = 0;
+        }
+    }
+}
+
+__global__ void upwardSweep(int* B, int stride, int size){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < size){
+        if (tid % stride == 0){
+            B[tid + stride - 1] += B[tid + stride / 2 - 1];
+        }
+    }
+}
+
+__global__ void downwardSweep(int* B, int stride, int size){
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    if (tid < size){
+        if (tid % stride == 0){
+            int leftValue = B[tid + stride / 2 - 1];
+            B[tid + stride / 2 - 1] = B[tid + stride - 1];
+            B[tid + stride - 1] += leftValue;
         }
     }
 }
@@ -55,6 +71,17 @@ int main(int argc, char **argv)
     inputFile.close();
     int size = A.size();
 
+    // Find the smallest power of 2 that is greater than or equal to the size of A
+    int powerOfTwo = 1;
+    int logSize = 0;
+    while (powerOfTwo < size) {
+        powerOfTwo *= 2;
+        logSize++;
+    }
+    // Expand A with 0 elements to make its length a power of 2
+    A.resize(powerOfTwo, 0);
+    size = A.size();
+
     int* d_A;
     int* d_temp;
     int* d_numOdd;
@@ -77,12 +104,28 @@ int main(int argc, char **argv)
     // Copy number of odd numbers from device to host
     cudaMemcpy(&numOdd, d_numOdd, sizeof(int), cudaMemcpyDeviceToHost);
 
+    // Blelloch Scan
+    int* d_B;
+    cudaMalloc((void**)&d_B, size * sizeof(int));
+    cudaMemcpy(d_B, d_temp, size * sizeof(int), cudaMemcpyDeviceToDevice);
+
+    for(int h = 0; h < logSize; h++){
+        int stride = 1 << (h + 1);
+        upwardSweep<<<gridSize, blockSize>>>(d_B, stride, size);
+    }
+    int zero = 0;
+    cudaMemcpy(&d_B[size - 1], &zero, sizeof(int), cudaMemcpyHostToDevice);
+    for(int h = logSize - 1; h >= 0; h--){
+        int stride = 1 << (h + 1);
+        downwardSweep<<<gridSize, blockSize>>>(d_B, stride, size);
+    }
+ 
     // Allocate memory for array D on the GPU
     int* d_D;
     cudaMalloc((void**)&d_D, numOdd * sizeof(int));
 
     // Launch kernel to find and copy odd numbers to array D
-    findOddNumbers<<<gridSize, blockSize>>>(d_A, d_D, d_temp, size);
+    findOddNumbers<<<gridSize, blockSize>>>(d_A, d_B, d_D, d_temp, size);
 
     // Copy array D from device to host
     std::vector<int> D(numOdd);
