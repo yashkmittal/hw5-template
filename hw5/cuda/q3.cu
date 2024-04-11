@@ -30,6 +30,18 @@ __global__ void findLocalFrequency(const int* A, int* B, int size) {
         atomicAdd(&B[threadIdx.x], localB[threadIdx.x]);
 }
 
+__global__ void computePrefix(int* B, int* C) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    int result = 0;
+
+    for (int i = 0; i <= tid; i++) {
+        result += B[i];
+    }
+
+    C[tid] = result;
+}
+
 int main(int argc, char **argv)
 {
     // Implement your solution for question 3. The input file is inp.txt
@@ -55,6 +67,8 @@ int main(int argc, char **argv)
 
     std::vector<int> A;
     std::vector<int> B(10, 0); // Initialize B to 0 (10 elements)
+    std::vector<int> C(10, 0)
+
     std::string line;
     while (std::getline(inputFile, line, ','))
     {
@@ -66,14 +80,17 @@ int main(int argc, char **argv)
     int size = A.size();
     int* d_A;
     int* d_B;
+    int* d_C;
 
     // Allocate memory on the GPU
     cudaMalloc((void**)&d_A, size * sizeof(int));
     cudaMalloc((void**)&d_B, 10 * sizeof(int));
+    cudaMalloc((void**)&d_C, 10 * sizeof(int));
 
     // Copy input array from host to device
     cudaMemcpy(d_A, A.data(), size * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(d_B, B.data(), 10 * sizeof(int), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_C, C.data(), 10 * sizeof(int), cudaMemcpyHostToDevice);
     
     // Launch kernel to find frequency
     int blockSize = 256;
@@ -112,13 +129,6 @@ int main(int argc, char **argv)
     // Copy result back to host
     cudaMemcpy(B.data(), d_B, 10 * sizeof(int), cudaMemcpyDeviceToHost);
 
-    // ------
-    // Part C
-    // ------
-
-    // TODO:
-        // Question: What does the problem statement mean?
-
     // Write output to q3b.txt
     std::ofstream outputFileB("q3b.txt");
     if (!outputFileB)
@@ -137,9 +147,35 @@ int main(int argc, char **argv)
     }
     outputFileB.close();
 
+    // ------
+    // Part C
+    // ------
+
+    computePrefix<<<1, 10>>>(d_B, d_C);
+    cudaMemcpy(C.data(), d_C, 10 * sizeof(int), cudaMemcpyDeviceToHost);
+
+    // Write output to q3c.txt
+    std::ofstream outputFileB("q3c.txt");
+    if (!outputFileC)
+    {
+        std::cerr << "Failed to open q3b.txt" << std::endl;
+        return 1;
+    }
+
+    for (int i = 0; i < 10; i++)
+    {
+        if (i != 9) {
+            outputFileB << C[i] << ", ";
+        } else {
+            outputFileB << C[i];
+        }
+    }
+    outputFileC.close();
+
     // Free memory
     cudaFree(d_A);
     cudaFree(d_B);
+    cudaFree(d_C);
 
     return 0;
 }
