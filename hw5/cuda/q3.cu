@@ -67,7 +67,7 @@ int main(int argc, char **argv)
 
     std::vector<int> A;
     std::vector<int> B(10, 0); // Initialize B to 0 (10 elements)
-    std::vector<int> C(10, 0)
+    std::vector<int> C(10, 0);
 
     std::string line;
     while (std::getline(inputFile, line, ','))
@@ -155,19 +155,19 @@ int main(int argc, char **argv)
     cudaMemcpy(C.data(), d_C, 10 * sizeof(int), cudaMemcpyDeviceToHost);
 
     // Write output to q3c.txt
-    std::ofstream outputFileB("q3c.txt");
+    std::ofstream outputFileC("q3c.txt");
     if (!outputFileC)
     {
-        std::cerr << "Failed to open q3b.txt" << std::endl;
+        std::cerr << "Failed to open q3c.txt" << std::endl;
         return 1;
     }
 
     for (int i = 0; i < 10; i++)
     {
         if (i != 9) {
-            outputFileB << C[i] << ", ";
+            outputFileC << C[i] << ", ";
         } else {
-            outputFileB << C[i];
+            outputFileC << C[i];
         }
     }
     outputFileC.close();

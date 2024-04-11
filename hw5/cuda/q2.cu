@@ -40,6 +40,7 @@ int main(int argc, char **argv)
     inputFile.close();
 
     int size = A.size();
+    int* d_A;
     int* d_B;
     int* d_minVal;
 
@@ -90,10 +91,11 @@ int main(int argc, char **argv)
     for (int i = 0; i < size; i++)
     {
         if (i != size - 1) {
-            outputFileA << B[i] << ", ";
+            outputFileB << B[i] << ", ";
         } else {
-            outputFileA << B[i];
+            outputFileB << B[i];
         }
+        
     }
     outputFileB.close();
 
